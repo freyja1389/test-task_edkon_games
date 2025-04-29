@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,20 +9,20 @@ namespace EdCon.MiniGameTemplate
 {
     public class HUDCustomizationController : MonoBehaviour
     {
-        private const float DEFAULT_SCALE_MULTIPLIER = 1f;
         private const string TOAST_MESSAGE_SETTINGS_SAVED = "Layout Scheme Saved";
+        private const string SETTINGS_FILE_NAME = "hud_user_settings.json";
 
-        [SerializeField] private List<HudElement> hudElements;
-        [SerializeField] private CustomizationSlider opacitySlider;
-        [SerializeField] private CustomizationSlider scaleSlider;
+        [SerializeField] private HudElement[] hudElements;
+        [SerializeField] private CustomizationSliderGroup sliderGroup;
         [SerializeField] private Button saveButton;
         [SerializeField] private Button defaultButton;
         [SerializeField] private ToastController toast;
 
-
         private HudElement selectedElement;
         private HUDSettingsJSONSerializer settingsJSONSerializer;
         private HUDElementsSettings playerSettings;
+        private HUDElementsSettings defaultSettings;
+        private string settingsFilePath;
 
         #region LifeCycle
 
@@ -32,18 +33,21 @@ namespace EdCon.MiniGameTemplate
                 element.ElementSelected += OnElementSelected;
             }
 
-            opacitySlider.SliderValueChanged += OnOpacityChanged;
-            scaleSlider.SliderValueChanged += OnScaleChanged;
+            sliderGroup.OpacitySliderValueChanged += OnOpacityChanged;
+            sliderGroup.ScaleSliderValueChanged += OnScaleChanged;
             saveButton.onClick.AddListener(OnSaveButtonClicked);
             defaultButton.onClick.AddListener(OnDefaultButtonClicked);
 
+            settingsFilePath = Path.Combine(Application.persistentDataPath, SETTINGS_FILE_NAME);
             settingsJSONSerializer = new HUDSettingsJSONSerializer();
-            settingsJSONSerializer.SettingsLoaded += OnSettingsLoaded;
+            settingsJSONSerializer.SettingsDeserialized += OnSettingsDeserialized;
+            settingsJSONSerializer.SettingsSerialized += OnSettingsSerialized;
         }
 
         private void Start()
         {
-            settingsJSONSerializer.LoadUserSettings();
+            SaveDefaultSettings();
+            settingsJSONSerializer.DeserializeSettings(settingsFilePath);
         }
 
         private void OnDestroy()
@@ -53,28 +57,29 @@ namespace EdCon.MiniGameTemplate
                 element.ElementSelected -= OnElementSelected;
             }
 
-            opacitySlider.SliderValueChanged -= OnOpacityChanged;
-            scaleSlider.SliderValueChanged -= OnScaleChanged;
+            sliderGroup.OpacitySliderValueChanged -= OnOpacityChanged;
+            sliderGroup.ScaleSliderValueChanged -= OnScaleChanged;
             saveButton.onClick.RemoveListener(OnSaveButtonClicked);
             defaultButton.onClick.RemoveListener(OnDefaultButtonClicked);
+            settingsJSONSerializer.SettingsDeserialized -= OnSettingsDeserialized;
+            settingsJSONSerializer.SettingsSerialized -= OnSettingsSerialized;
         }
 
         #endregion
 
         #region Callbacks
 
-        private void OnElementSelected(HudElement element)
+        private void OnElementSelected(HudElement selectedElement)
         {
-            selectedElement = element;
+            this.selectedElement = selectedElement;
 
-            foreach (var elem in hudElements)
+            foreach (var element in hudElements)
             {
-                elem.IsSelected = (elem == element);
+                element.IsSelected = (element == selectedElement);
             }
 
-            SetSliderValues(element);
-            scaleSlider.ShowSlider();
-            opacitySlider.ShowSlider();
+            sliderGroup.SetSliderValues(selectedElement, defaultSettings);
+            sliderGroup.ShowSliders();
         }
 
         private void OnOpacityChanged(float value)
@@ -84,46 +89,54 @@ namespace EdCon.MiniGameTemplate
 
         private void OnScaleChanged(float value)
         {
-            float invertedValue = DEFAULT_SCALE_MULTIPLIER - value;
-            var defaultSize = selectedElement.DefaultScale;
-            Vector2 newSize = defaultSize * value;
-            selectedElement.Scale = newSize;
+            var foundElement = defaultSettings.elements.FirstOrDefault(e => e.elementName == selectedElement.Name);
+
+            if (foundElement != null)
+            {
+                var defaultSize = foundElement.scale;
+                Vector2 newSize = defaultSize * value;
+                selectedElement.Scale = newSize;
+            }
         }
 
         private void OnSaveButtonClicked()
         {
-            selectedElement.IsSelected = false;
-            scaleSlider.HideSlider();
-            opacitySlider.HideSlider();
-            settingsJSONSerializer.SettingsSaved += OnSettingsSaved;
-            settingsJSONSerializer.SaveSettings(hudElements);
+            if (selectedElement != null)
+            {
+                selectedElement.IsSelected = false;
+            }
+
+            sliderGroup.HideSliders();
+            settingsJSONSerializer.SerializeSettings(hudElements, settingsFilePath);
         }
 
         private void OnDefaultButtonClicked()
         {
-            scaleSlider.HideSlider();
-            opacitySlider.HideSlider();
-            ApplyDefaultSettings();
+            sliderGroup.HideSliders();
+            ApplyPlayerSettings(defaultSettings);
         }
 
-        private void OnSettingsSaved()
+        private void OnSettingsSerialized()
         {
-            selectedElement.IsSelected = false;
-            settingsJSONSerializer.SettingsSaved -= OnSettingsSaved;
+            if (selectedElement != null)
+            {
+                selectedElement.IsSelected = false;
+            }
+
             toast.ShowToast(TOAST_MESSAGE_SETTINGS_SAVED);
         }
 
-        private void OnSettingsLoaded(HUDElementsSettings settingsList)
+        private void OnSettingsDeserialized(HUDElementsSettings settingsList)
         {
-            if (settingsJSONSerializer != null)
-            {
-                settingsJSONSerializer.SettingsLoaded -= OnSettingsLoaded;
-            }
-
             if (settingsList != null)
             {
                 playerSettings = settingsList;
                 ApplyPlayerSettings(playerSettings);
+            }
+            else
+            {
+                Debug.LogWarning($"User settings not found. Loading defaults.");
+                ApplyPlayerSettings(defaultSettings);
             }
         }
 
@@ -133,41 +146,38 @@ namespace EdCon.MiniGameTemplate
 
         private void ApplyPlayerSettings(HUDElementsSettings settingsList)
         {
-            foreach (var elem in settingsList.elements)
+            foreach (var element in settingsList.elements)
             {
-                var foundElement = hudElements.FirstOrDefault(element => element.Name == elem.elementName);
+                var foundElement = hudElements.FirstOrDefault(e => e.Name == element.elementName);
 
                 if (foundElement != null)
                 {
-                    foundElement.Opacity = elem.alpha;
-                    foundElement.Scale = elem.scale;
-                    foundElement.Position = elem.position;
+                    foundElement.Opacity = element.alpha;
+                    foundElement.Scale = element.scale;
+                    foundElement.Position = element.position;
                 }
             }
         }
 
-        private void ApplyDefaultSettings()
+        private void SaveDefaultSettings()
         {
-            foreach (HudElement elem in hudElements)
+            var settings = new HUDElementsSettings
             {
-                elem.Opacity = elem.DefaultOpacity;
-                elem.Position = elem.DefaultPosition;
-                elem.Scale = elem.DefaultScale;
-            }
-        }
+                elements = new List<HUDElementSettingsData>()
+            };
 
-        private void SetSliderValues(HudElement element)
-        {
-            var scaleMultiplier = DEFAULT_SCALE_MULTIPLIER;
-
-            if (element.Scale != element.DefaultScale && element.DefaultScale != Vector2.zero)
+            foreach (var element in hudElements)
             {
-                scaleMultiplier = element.Scale.x / element.DefaultScale.x;
-                scaleMultiplier = Mathf.Clamp(scaleMultiplier, scaleSlider.MinSliderValue, scaleSlider.MaxSliderValue);
+                settings.elements.Add(new HUDElementSettingsData
+                {
+                    elementName = element.Name,
+                    alpha = element.Opacity,
+                    scale = element.Scale,
+                    position = element.Position
+                });
             }
 
-            scaleSlider.SetSliderValue(scaleMultiplier);
-            opacitySlider.SetSliderValue(element.Opacity);
+            defaultSettings = settings;
         }
 
         #endregion
