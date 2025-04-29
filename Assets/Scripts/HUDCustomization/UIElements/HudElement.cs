@@ -9,17 +9,14 @@ namespace EdCon.MiniGameTemplate
 {
     public class HudElement : MonoBehaviour, IPointerDownHandler, IDragHandler
     {
-        public event Action<HudElement> ElementSelected;
-
         [SerializeField] private Canvas canvas;
         [SerializeField] private String elementName;
+
+        public event Action<HudElement> ElementSelected;
 
         private CanvasGroup elementCanvasGroup;
         private RectTransform elementRectTransform;
         private Image elementSelectedImage;
-        private Vector2 defaultScale;
-        private float defaultOpacity;
-        private Vector2 defaultPosition;
 
         #region Public
 
@@ -55,21 +52,6 @@ namespace EdCon.MiniGameTemplate
             }
         }
 
-        public float DefaultOpacity
-        {
-            get => defaultOpacity;
-        }
-
-        public Vector2 DefaultScale
-        {
-            get => defaultScale;
-        }
-
-        public Vector2 DefaultPosition
-        {
-            get => defaultPosition;
-        }
-
         public bool IsSelected
         {
             set
@@ -93,10 +75,6 @@ namespace EdCon.MiniGameTemplate
             elementCanvasGroup = GetComponent<CanvasGroup>();
             elementRectTransform = GetComponent<RectTransform>();
             elementSelectedImage = GetComponent<Image>();
-
-            defaultOpacity = elementCanvasGroup.alpha;
-            defaultScale = elementRectTransform.sizeDelta;
-            defaultPosition = elementRectTransform.anchoredPosition;
         }
 
         #endregion

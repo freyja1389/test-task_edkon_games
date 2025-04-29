@@ -12,22 +12,22 @@ namespace EdCon.MiniGameTemplate
         private const float FULL_TRANSPARENT_VALUE = 0f;
         private const float FULL_OPACITY_VALUE = 1f;
 
-        public event Action<float> SliderValueChanged;
-
         [SerializeField] private Text sliderValueText;
         [SerializeField] private Slider slider;
         [SerializeField] private CanvasGroup sliderCanvasGroup;
+
+        public event Action<float> SliderValueChanged;
 
         #region Public
 
         public float MinSliderValue
         {
-            get { return slider.minValue; }
+            get => slider.minValue;
         }
 
         public float MaxSliderValue
         {
-            get { return slider.maxValue; }
+            get => slider.maxValue;
         }
 
         public void SetSliderValue(float value)

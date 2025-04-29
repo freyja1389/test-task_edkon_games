@@ -9,36 +9,34 @@ namespace EdCon.MiniGameTemplate
     {
         private const string FILE_NAME = "hud_user_settings.json";
 
-        public event Action<HUDElementsSettings> SettingsLoaded;
-        public event Action SettingsSaved;
+        public event Action<HUDElementsSettings> SettingsDeserialized;
+        public event Action SettingsSerialized;
 
-        public void SaveSettings(List<HudElement> hudElements)
+        public void SerializeSettings(HudElement[] hudElements, string path)
         {
-            var saveDataList = new List<HUDElementSettingsData>();
+            var settings = new HUDElementsSettings
+            {
+                elements = new List<HUDElementSettingsData>()
+            };
 
             foreach (var element in hudElements)
             {
-                saveDataList.Add(new HUDElementSettingsData
+                settings.elements.Add(new HUDElementSettingsData
                 {
-                    elementName = element.name,
+                    elementName = element.Name,
                     alpha = element.Opacity,
                     scale = element.Scale,
                     position = element.Position
                 });
             }
 
-            var settingList = new HUDElementsSettings { elements = saveDataList };
-            string json = JsonUtility.ToJson(settingList, true);
-            string path = Path.Combine(Application.persistentDataPath, FILE_NAME);
+            string json = JsonUtility.ToJson(settings, true);
             File.WriteAllText(path, json);
-
-            Debug.Log($"Layout scheme saved!");
-            SettingsSaved?.Invoke();
+            SettingsSerialized?.Invoke();
         }
 
-        public void LoadUserSettings()
+        public void DeserializeSettings(string path)
         {
-            string path = Path.Combine(Application.persistentDataPath, FILE_NAME);
             HUDElementsSettings outputSettings = null;
 
             if (File.Exists(path))
@@ -55,12 +53,8 @@ namespace EdCon.MiniGameTemplate
                     }
                 }
             }
-            else
-            {
-                Debug.LogWarning($"User settings not found. Loading defaults.");
-            }
 
-            SettingsLoaded?.Invoke(outputSettings);
+            SettingsDeserialized?.Invoke(outputSettings);
         }
     }
 }
