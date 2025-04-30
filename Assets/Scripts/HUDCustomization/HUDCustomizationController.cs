@@ -75,7 +75,7 @@ namespace EdCon.MiniGameTemplate
 
             foreach (var element in hudElements)
             {
-                element.IsSelected = (element == selectedElement);
+                element.SetSelected(element == selectedElement);
             }
 
             sliderGroup.SetSliderValues(selectedElement, defaultSettings);
@@ -103,7 +103,7 @@ namespace EdCon.MiniGameTemplate
         {
             if (selectedElement != null)
             {
-                selectedElement.IsSelected = false;
+                selectedElement.SetSelected(false);
             }
 
             sliderGroup.HideSliders();
@@ -120,7 +120,7 @@ namespace EdCon.MiniGameTemplate
         {
             if (selectedElement != null)
             {
-                selectedElement.IsSelected = false;
+                selectedElement.SetSelected(false);
             }
 
             toast.ShowToast(TOAST_MESSAGE_SETTINGS_SAVED);

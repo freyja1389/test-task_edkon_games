@@ -11,12 +11,12 @@ namespace EdCon.MiniGameTemplate
     {
         [SerializeField] private Canvas canvas;
         [SerializeField] private String elementName;
+        [SerializeField] private HUDHighlighter highlighter;
+        [SerializeField] private CanvasGroup elementCanvasGroup;
 
         public event Action<HudElement> ElementSelected;
 
-        private CanvasGroup elementCanvasGroup;
         private RectTransform elementRectTransform;
-        private Image elementSelectedImage;
 
         #region Public
 
@@ -52,12 +52,18 @@ namespace EdCon.MiniGameTemplate
             }
         }
 
-        public bool IsSelected
+        public void SetSelected(bool isSelected)
         {
-            set
+
+            if (highlighter == null) return;
+
+            if (isSelected)
             {
-                if (elementSelectedImage != null)
-                    elementSelectedImage.enabled = value;
+                highlighter.SetHighlight(elementRectTransform);
+            }
+            else
+            {
+                highlighter.RemoveHighlight(elementRectTransform);
             }
         }
 
@@ -72,9 +78,7 @@ namespace EdCon.MiniGameTemplate
 
         private void Awake()
         {
-            elementCanvasGroup = GetComponent<CanvasGroup>();
             elementRectTransform = GetComponent<RectTransform>();
-            elementSelectedImage = GetComponent<Image>();
         }
 
         #endregion
